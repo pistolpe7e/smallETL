@@ -1,0 +1,101 @@
+import requests, json
+from oauthlib.oauth2 import LegacyApplicationClient
+from requests_oauthlib import OAuth2Session
+import mysql.connector
+
+# Variablen festlegen (anonymisiert)
+USERNAME = "RL"
+PASSWORD = "password"
+API_URL = "https://api_url.com/"
+TOKEN_URL = API_URL + "api/oauth/token"
+USERS_ENDPOINT = API_URL + "api/users/admin/export"
+
+CLIENT_ID = "ID"
+CLIENT_SECRET = "secret"
+
+MYSQL_HOST = "localhost"
+MYSQL_USER = "root"
+MYSQL_PASSWORD = "password"
+MYSQL_DATABASE = "database"
+
+# OAuth-Session starten
+oauth = OAuth2Session(client=LegacyApplicationClient(client_id=CLIENT_ID))
+
+# Token holen
+token = oauth.fetch_token(token_url=TOKEN_URL,
+        username=USERNAME, password=PASSWORD, 
+        client_id=CLIENT_ID,
+        client_secret=CLIENT_SECRET)
+
+# Post-Request senden
+r = oauth.get(USERS_ENDPOINT)
+
+# JSON einlesen
+users = json.loads(r.content)["content"]
+# print(users)
+
+# Array für alle Nutzer bereitstellen
+new_users = []
+
+# Über die zurückgegebenen Nutzer iterriern
+for user in users:
+
+    # Objekt NewUser erstellen
+    new_user = {
+    "id": 0,
+    "displayName": 0,
+    "email": 0,
+    "lastLogin": 0
+    }
+
+    # Ausgabe im Terminal und Anhängen ans Array
+    string = ""
+    if "id" in user:
+        string += user["id"] + ", "
+        new_user["id"] = user["id"]
+
+    if "displayName" in user:
+        string += user["displayName"] + ", "
+        new_user["displayName"] = user["displayName"]
+
+    if "email" in user:
+        string += user["email"] + ", "
+        new_user["email"] = user["email"]
+
+    if "lastLogin" in user:
+        string += str(user["lastLogin"])
+        new_user["lastLogin"] = user["lastLogin"]
+
+    print(string)
+
+    # Befülltes Nutzer-Objekt an das Array anhängen
+    new_users.append(new_user)
+
+# Array als JSON im Terminal ausgeben
+# print(json.dumps(new_users))
+
+# Verbindung mit Datenbank aufbauen
+db = mysql.connector.connect(
+  host=MYSQL_HOST,
+  user=MYSQL_USER,
+  passwd=MYSQL_PASSWORD,
+  database=MYSQL_DATABASE,
+  charset="utf8"
+)
+
+# INSERT-Request zusammensetzen
+mysql_request = "INSERT INTO Users(id, User, Email, LastLogin) VALUES "
+
+for new_user in new_users:
+    mysql_request += "('" + new_user["id"] + "', '" + new_user["displayName"] + "', '" + new_user["email"] + "', '" + str(new_user["lastLogin"]) + "'),"
+
+# Letztes , entfernen und durch ; ersetzen
+mysql_request = mysql_request[:-1]
+mysql_request += ";"
+
+print(mysql_request)
+
+# MySQL-Befehl senden
+cursor = db.cursor()
+cursor.execute(mysql_request)
+db.commit()
